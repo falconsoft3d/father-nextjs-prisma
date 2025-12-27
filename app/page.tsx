@@ -1,7 +1,10 @@
 import Link from "next/link"
 import { ArrowRight, Database, Code, Shield, Users, Zap } from "lucide-react"
 
-export default function Home() {
+import { auth } from "@/auth"
+
+export default async function Home() {
+  const session = await auth()
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
@@ -14,19 +17,30 @@ export default function Home() {
               <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
             </div>
             <div className="flex gap-3">
-              <Link
-                href="/login"
-                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                Login
-              </Link>
-              <Link
-                href="/register"
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 
-                         transition-colors"
-              >
-                Sign up
-              </Link>
+              {session?.user ? (
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 text-sm font-semibold text-gray-900 hover:text-gray-700 transition-colors"
+                >
+                  {session.user.name}
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 
+                             transition-colors"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -12,9 +12,17 @@ interface User {
   createdAt: Date
 }
 
-export default function UsersClient({ users: initialUsers }: { users: User[] }) {
+export default function UsersClient({
+  users,
+  totalItems,
+  currentPage
+}: {
+  users: User[]
+  totalItems: number
+  currentPage: number
+}) {
   const router = useRouter()
-  const [users, setUsers] = useState(initialUsers)
+  // const [users, setUsers] = useState(initialUsers) // Don't use state for data anymore, it comes from props
   const [message, setMessage] = useState<{
     text: string
     type: "success" | "error"
@@ -40,11 +48,10 @@ export default function UsersClient({ users: initialUsers }: { users: User[] }) 
       label: "role",
       render: (user: User) => (
         <span
-          className={`inline-block px-2 py-0.5 text-xs rounded ${
-            user.role === "admin"
+          className={`inline-block px-2 py-0.5 text-xs rounded ${user.role === "admin"
               ? "bg-purple-100 text-purple-700"
               : "bg-blue-100 text-blue-700"
-          }`}
+            }`}
         >
           {user.role}
         </span>
@@ -88,11 +95,10 @@ export default function UsersClient({ users: initialUsers }: { users: User[] }) 
     <div>
       {message && (
         <div
-          className={`mb-4 p-3 rounded-md text-sm ${
-            message.type === "success"
+          className={`mb-4 p-3 rounded-md text-sm ${message.type === "success"
               ? "bg-green-50 border border-green-200 text-green-700"
               : "bg-red-50 border border-red-200 text-red-700"
-          }`}
+            }`}
         >
           {message.text}
         </div>
@@ -109,6 +115,10 @@ export default function UsersClient({ users: initialUsers }: { users: User[] }) 
         getItemId={(user) => user.id}
         getEditUrl={(user) => `/dashboard/users/${user.id}/edit`}
         itemsPerPage={10}
+        isServerSide={true}
+        totalItems={totalItems}
+        currentPage={currentPage}
+        onPageChange={(page) => router.push(`/dashboard/users?page=${page}`)}
       />
     </div>
   )

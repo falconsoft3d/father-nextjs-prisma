@@ -58,6 +58,7 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(name && { name }),
           ...(email && { email }),
+          ...(body.image !== undefined && { image: body.image }),
         },
       })
 
@@ -76,30 +77,4 @@ export async function PUT(req: NextRequest) {
     )
   }
 }
-          email,
-          password: hashedPassword,
-        },
-      })
-    } else {
-      // Actualizar solo información básica
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          name,
-          email,
-        },
-      })
-    }
 
-    return NextResponse.json({
-      message: "Perfil actualizado exitosamente",
-      success: true,
-    })
-  } catch (error) {
-    console.error("Error al actualizar perfil:", error)
-    return NextResponse.json(
-      { error: "Error al actualizar el perfil" },
-      { status: 500 }
-    )
-  }
-}

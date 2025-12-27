@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { Plus, Settings, RefreshCw, Eye, ChevronLeft, ChevronRight, Download, Upload, EyeOff, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import * as XLSX from "xlsx"
@@ -23,6 +23,13 @@ interface TableTemplateProps<T> {
   itemsPerPage?: number
   getItemId: (item: T) => string
   getEditUrl?: (item: T) => string
+  onCreate?: () => void
+  onEdit?: (item: T) => void
+  isServerSide?: boolean
+  totalItems?: number
+  currentPage?: number
+  onPageChange?: (page: number) => void
+  onSearch?: (term: string) => void
 }
 
 export default function TableTemplate<T>({
@@ -36,14 +43,26 @@ export default function TableTemplate<T>({
   itemsPerPage = 10,
   getItemId,
   getEditUrl,
+  onCreate,
+  onEdit,
+  isServerSide = false,
+  totalItems = 0,
+  currentPage: propCurrentPage = 1,
+  onPageChange,
+  onSearch,
 }: TableTemplateProps<T>) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(propCurrentPage)
   const [visibleColumns, setVisibleColumns] = useState<string[]>(columns.map(c => c.key))
   const [showColumnSettings, setShowColumnSettings] = useState(false)
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync propCurrentPage with state (critical for Server Side pagination)
+  useEffect(() => {
+    setCurrentPage(propCurrentPage)
+  }, [propCurrentPage])
 
   // Filtrar datos según búsqueda
   const filteredData = useMemo(() => {
@@ -81,21 +100,40 @@ export default function TableTemplate<T>({
     })
   }, [filteredData, sortColumn, sortDirection])
 
-  // Calcular paginación
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedData = sortedData.slice(startIndex, endIndex)
+  // Ensure itemsPerPage is a number
+  const safeItemsPerPage = Number(itemsPerPage) || 10
+
+  // Clacular paginación
+  const totalPages = isServerSide
+    ? Math.ceil(totalItems / safeItemsPerPage)
+    : Math.ceil(sortedData.length / safeItemsPerPage)
+
+  const startIndex = (currentPage - 1) * safeItemsPerPage
+  const endIndex = startIndex + safeItemsPerPage
+  const paginatedData = isServerSide ? data : sortedData.slice(startIndex, endIndex)
+
+  /* Debug Pagination */
+  // console.log("Pagination:", { currentPage, totalPages, items: sortedData.length })
 
   // Resetear página si cambia la búsqueda
   const handleSearch = (value: string) => {
     setSearchTerm(value)
-    setCurrentPage(1)
+    if (isServerSide && onSearch) {
+      onSearch(value)
+    } else {
+      setCurrentPage(1)
+    }
   }
 
   const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
+    const targetPage = Number(page)
+    console.log("GoToPage:", targetPage, "Total:", totalPages)
+    if (targetPage >= 1 && targetPage <= totalPages) {
+      if (isServerSide && onPageChange) {
+        onPageChange(targetPage)
+      } else {
+        setCurrentPage(targetPage)
+      }
     }
   }
 
@@ -131,10 +169,10 @@ export default function TableTemplate<T>({
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
         const jsonData = XLSX.utils.sheet_to_json(worksheet)
-        
+
         console.log("Datos importados:", jsonData)
         alert(`Se importaron ${jsonData.length} registros. Revisa la consola para ver los datos.`)
-        
+
         // Aquí puedes agregar lógica adicional para procesar los datos importados
       } catch (error) {
         console.error("Error al importar:", error)
@@ -142,7 +180,7 @@ export default function TableTemplate<T>({
       }
     }
     reader.readAsBinaryString(file)
-    
+
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -201,7 +239,16 @@ export default function TableTemplate<T>({
           >
             <Upload size={18} />
           </button>
-          {newRecordUrl && (
+
+          {onCreate ? (
+            <button
+              onClick={onCreate}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
+            >
+              <Plus size={16} />
+              {newRecordLabel}
+            </button>
+          ) : newRecordUrl ? (
             <Link
               href={newRecordUrl}
               className="flex items-center gap-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 transition-colors"
@@ -209,7 +256,7 @@ export default function TableTemplate<T>({
               <Plus size={16} />
               {newRecordLabel}
             </Link>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -263,7 +310,11 @@ export default function TableTemplate<T>({
                     key={getItemId(item)}
                     className="hover:bg-gray-50 transition-colors group cursor-pointer"
                     onClick={() => {
-                      if (editUrl) window.location.href = editUrl
+                      if (onEdit) {
+                        onEdit(item)
+                      } else if (editUrl) {
+                        window.location.href = editUrl
+                      }
                     }}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -292,50 +343,84 @@ export default function TableTemplate<T>({
         {/* Footer with pagination */}
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-600">
           <span>
-            Total found: {filteredData.length} {searchTerm && `(filtrado de ${data.length})`}
+            {isServerSide
+              ? `Total found: ${totalItems}`
+              : `Total found: ${filteredData.length} ${searchTerm && `(filtrado de ${data.length})`}`
+            }
           </span>
-          
+
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  goToPage(currentPage - 1)
+                }}
+                disabled={currentPage <= 1}
                 className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={16} />
               </button>
-              
+
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  // Mostrar solo páginas cercanas a la actual
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`px-2 py-1 rounded text-xs ${
-                          currentPage === page
+                {totalPages <= 10 ? (
+                  // Show all pages if 10 or fewer
+                  Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        goToPage(page)
+                      }}
+                      className={`px-2 py-1 rounded text-xs ${currentPage === page
+                        ? "bg-gray-900 text-white"
+                        : "hover:bg-gray-200"
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  ))
+                ) : (
+                  // Truncate if more than 10
+                  Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 2 && page <= currentPage + 2)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            goToPage(page)
+                          }}
+                          className={`px-2 py-1 rounded text-xs ${currentPage === page
                             ? "bg-gray-900 text-white"
                             : "hover:bg-gray-200"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    )
-                  } else if (page === currentPage - 2 || page === currentPage + 2) {
-                    return <span key={page}>...</span>
-                  }
-                  return null
-                })}
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    } else if (page === currentPage - 3 || page === currentPage + 3) {
+                      return <span key={`dots-${page}`} className="px-1 text-gray-400">...</span>
+                    }
+                    return null
+                  })
+                )}
               </div>
 
               <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  goToPage(currentPage + 1)
+                }}
+                disabled={currentPage >= totalPages}
                 className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={16} />
@@ -344,6 +429,6 @@ export default function TableTemplate<T>({
           )}
         </div>
       </div>
-    </div>
+    </div >
   )
 }

@@ -20,5 +20,142 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+
   @@map("users")
+}
+
+model AIModel {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // "OPENAI", "OLLAMA", etc.
+  config    Json     // API Key, Base URL, Model Name, etc.
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_models")
+}
+
+model Currency {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // USD, EUR
+  symbol    String   // $, €
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  journals  Journal[]
+
+  @@map("currencies")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String   // "Almacenable", "Servicio"
+  cost      Decimal  @default(0)
+  price     Decimal  @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  vat       String?
+  email     String?
+  phone     String?
+  address   String?
+  country   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments  Payment[]
+
+  @@map("contacts")
+}
+
+model ScheduledTask {
+  id        String   @id @default(cuid())
+  name      String
+  function  String
+  frequency String   // "Minutos", "Hora", "Día", "Semana", "Año"
+  interval  Int      @default(1)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("scheduled_tasks")
+}
+
+model SystemLog {
+  id          Int      @id @default(autoincrement()) // Sequence
+  description String
+  origin      String
+  createdAt   DateTime @default(now())
+
+  @@map("system_logs")
+}
+
+model Ticket {
+  id          Int      @id @default(autoincrement()) // Sequence
+  title       String
+  description String
+  solution    String?
+  status      String   @default("Abierto") // Abierto, En Progreso, Cerrado
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tickets")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model Journal {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  
+  currencyId String
+  currency   Currency @relation(fields: [currencyId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  payments  Payment[]
+  
+  @@map("journals")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  code      Int      @unique @default(autoincrement())
+  reference String?
+  type      String   // "Entrada", "Salida"
+  amount    Decimal  @default(0)
+  date      DateTime @default(now())
+  
+  journalId String
+  journal   Journal  @relation(fields: [journalId], references: [id])
+  
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
 }

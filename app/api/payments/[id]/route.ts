@@ -1,0 +1,66 @@
+import { auth } from "@/auth"
+import { prisma } from "@/lib/prisma"
+import { NextResponse } from "next/server"
+
+export async function PUT(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await auth()
+        if (!session) {
+            return new NextResponse("Unauthorized", { status: 401 })
+        }
+
+        const { id } = await params
+        const body = await req.json()
+        const { type, journalId, amount, date, contactId, reference } = body
+
+        if (!type || !journalId) {
+            return new NextResponse("Missing required fields", { status: 400 })
+        }
+
+        const payment = await prisma.payment.update({
+            where: { id },
+            data: {
+                reference,
+                type,
+                journalId,
+                amount: amount,
+                date: date ? new Date(date) : undefined,
+                contactId: contactId,
+            },
+            include: {
+                journal: true,
+                contact: true
+            }
+        })
+
+        return NextResponse.json(payment)
+    } catch (error) {
+        console.error("[PAYMENTS_PUT]", error)
+        return new NextResponse("Internal Error", { status: 500 })
+    }
+}
+
+export async function DELETE(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await auth()
+        if (!session) {
+            return new NextResponse("Unauthorized", { status: 401 })
+        }
+
+        const { id } = await params
+        await prisma.payment.delete({
+            where: { id },
+        })
+
+        return new NextResponse(null, { status: 204 })
+    } catch (error) {
+        console.error("[PAYMENTS_DELETE]", error)
+        return new NextResponse("Internal Error", { status: 500 })
+    }
+}

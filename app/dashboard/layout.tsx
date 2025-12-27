@@ -16,7 +16,11 @@ export default async function DashboardLayout({
 
   return (
     <SessionProviderWrapper>
-      <DashboardLayoutClient userName={session.user?.name} userRole={session.user?.role}>
+      <DashboardLayoutClient
+        userName={session.user?.name}
+        userRole={session.user?.role}
+        userImage={session.user?.image}
+      >
         {children}
       </DashboardLayoutClient>
     </SessionProviderWrapper>

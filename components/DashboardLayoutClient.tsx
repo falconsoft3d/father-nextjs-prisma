@@ -6,17 +6,19 @@ import Sidebar from "./Sidebar"
 interface DashboardLayoutClientProps {
   userName?: string | null
   userRole?: string
+  userImage?: string | null
   children: React.ReactNode
 }
 
-export default function DashboardLayoutClient({ userName, userRole, children }: DashboardLayoutClientProps) {
+export default function DashboardLayoutClient({ userName, userRole, userImage, children }: DashboardLayoutClientProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar 
-        userName={userName} 
-        userRole={userRole} 
+      <Sidebar
+        userName={userName}
+        userRole={userRole}
+        userImage={userImage}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
       />
